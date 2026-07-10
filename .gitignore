@@ -1,0 +1,9 @@
+# Cisco IOS images
+project-files/dynamips/*.ghost
+project-files/dynamips/*.image
+project-files/dynamips/*.bin
+project-files/dynamips/*.ios
+
+project-files/dynamips/
+project-files/qemu/
+project-files/iou/
