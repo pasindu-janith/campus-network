@@ -7,3 +7,5 @@ project-files/dynamips/*.ios
 project-files/dynamips/
 project-files/qemu/
 project-files/iou/
+
+snapshots/
