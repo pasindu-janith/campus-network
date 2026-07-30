@@ -1,8 +1,10 @@
-# SW-CORE-1 Layer 3 Switch Configuration
+# SW-CORE-2 Layer 3 Switch Configuration
 
 ## Overview
 
-**SW-CORE-1** is the primary Layer 3 core switch within the enterprise network. It provides inter-VLAN routing, dynamic routing using OSPF, gateway redundancy using HSRP, DHCP relay services, and Out-of-Band (OOB) management connectivity. The switch also serves as the aggregation point between distribution switches, core routers, and the edge router.
+**SW-CORE-2** serves as the secondary Layer 3 core switch in the enterprise network. It provides inter-VLAN routing, dynamic routing through OSPF, gateway redundancy using HSRP, and DHCP relay services. Together with **SW-CORE-1**, it forms a redundant core layer that ensures high availability and resilient routing. The switch also maintains a dedicated Out-of-Band (OOB) management interface using VLAN 99.
+
+Unlike SW-CORE-1, which is configured as the preferred HSRP active gateway through a higher priority, **SW-CORE-2 operates as the standby HSRP router** and automatically assumes the gateway role if SW-CORE-1 becomes unavailable.
 
 ---
 
@@ -10,21 +12,52 @@
 
 | Parameter | Value |
 |------------|----------------|
-| Hostname | SW-CORE-1 |
+| Hostname | SW-CORE-2 |
 | Cisco IOS Version | 15.2 |
 | Device Type | Layer 3 Switch |
 | Routing Protocol | OSPF |
 | OSPF Area | Area 0 |
-| Router ID | 11.11.11.11 |
-| First Hop Redundancy | HSRP |
+| Router ID | 12.12.12.12 |
+| First Hop Redundancy | HSRP (Standby) |
 | DHCP Relay | Enabled |
 | Management | SSH / HTTP / HTTPS |
 
 ---
 
+# Network Topology
 
+```
+                    Distribution Switches
+                             │
+                             │
+                        SW-A-DIS
+                             │
+                     Trunk (VLAN 40,99,100)
+                             │
+                     +------------------+
+                     |    SW-CORE-2     |
+                     +------------------+
+                    /    |      |      \
+                   /     |      |       \
+              R-CORE-2  R-EDGE  SW-CORE-1
+```
 
-# Cisco IOS Configuration
+---
+
+# Routed Interfaces
+
+| Interface | IP Address | Purpose |
+|-----------|------------|---------|
+| GigabitEthernet0/0 | 10.255.255.6/30 | Routed Link |
+| GigabitEthernet0/1 | 10.255.255.14/30 | Routed Link |
+| GigabitEthernet0/2 | 10.255.255.22/30 | Routed Link |
+| GigabitEthernet1/0 | 10.255.255.37/30 | Routed Link |
+
+All routed interfaces participate in **OSPF Area 0**.
+
+---
+
+Cisco IOS Configuration (SW-CORE-2)
 ```cisco
 enable
 configure terminal
@@ -33,7 +66,7 @@ configure terminal
 ! Basic Configuration
 ! ==========================================================
 
-hostname SW-CORE-1
+hostname SW-CORE-2
 
 service timestamps debug datetime msec
 service timestamps log datetime msec
@@ -61,7 +94,7 @@ spanning-tree extend system-id
 
 interface GigabitEthernet0/0
  no switchport
- ip address 10.255.255.2 255.255.255.252
+ ip address 10.255.255.6 255.255.255.252
  ip ospf 1 area 0
  no shutdown
 
@@ -69,7 +102,7 @@ interface GigabitEthernet0/0
 
 interface GigabitEthernet0/1
  no switchport
- ip address 10.255.255.10 255.255.255.252
+ ip address 10.255.255.14 255.255.255.252
  ip ospf 1 area 0
  no shutdown
 
@@ -77,7 +110,7 @@ interface GigabitEthernet0/1
 
 interface GigabitEthernet0/2
  no switchport
- ip address 10.255.255.18 255.255.255.252
+ ip address 10.255.255.22 255.255.255.252
  ip ospf 1 area 0
  no shutdown
 
@@ -85,7 +118,7 @@ interface GigabitEthernet0/2
 
 interface GigabitEthernet1/0
  no switchport
- ip address 10.255.255.29 255.255.255.252
+ ip address 10.255.255.37 255.255.255.252
  ip ospf 1 area 0
  no shutdown
 
@@ -120,23 +153,14 @@ interface GigabitEthernet1/2
  switchport trunk allowed vlan 40,99,100
  no shutdown
 
-!
-
-interface GigabitEthernet2/0
- description OOB Link up to R-EDGE
- switchport mode access
- switchport access vlan 99
- no shutdown
-
 ! ==========================================================
-! VLAN Interfaces
+! VLAN Interfaces (SVIs)
 ! ==========================================================
 
 interface Vlan40
- ip address 10.10.40.252 255.255.255.0
+ ip address 10.10.40.253 255.255.255.0
  ip helper-address 10.10.40.10
  standby 40 ip 10.10.40.254
- standby 40 priority 110
  standby 40 preempt
  ip ospf 1 area 0
  no shutdown
@@ -145,14 +169,14 @@ interface Vlan40
 
 interface Vlan99
  description Out-of-Band Management
- ip address 10.99.99.11 255.255.255.0
+ ip address 10.99.99.12 255.255.255.0
  ip ospf 1 area 0
  no shutdown
 
 !
 
 interface Vlan100
- ip address 10.255.255.25 255.255.255.252
+ ip address 10.255.255.33 255.255.255.252
  ip ospf 1 area 0
  no shutdown
 
@@ -161,7 +185,7 @@ interface Vlan100
 ! ==========================================================
 
 router ospf 1
- router-id 11.11.11.11
+ router-id 12.12.12.12
 
 ! ==========================================================
 ! HTTP / HTTPS Management
