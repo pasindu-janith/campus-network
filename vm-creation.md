@@ -97,6 +97,11 @@ dhcp-option=tag:vlan40,option:router,10.10.40.254
 
 # Set DNS server pushed to clients (VM-DHCP itself)
 dhcp-option=option:dns-server,10.10.40.10
+
+# ---------------------------------------------------
+# Local DNS Records for DIS Server Farm
+# ---------------------------------------------------
+address=/www.uorfoe.com/10.10.40.20
 ```
 
 
@@ -113,4 +118,58 @@ CMD ["dnsmasq", "-k", "-d"]
 Build the image:
 ```bash
 docker build -t vmdhcp-server:latest .
+```
+
+## VM-WEB Configuration
+
+```bash
+mkdir vm-web
+cd vm-web
+```
+Create `index.html`:
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DIS Web</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; color: #333; text-align: center; padding: 50px; }
+        .container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); max-width: 600px; margin: auto; }
+        h1 { color: #0056b3; }
+        .success { color: #28a745; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Department of Interdisciplinary Studies</h1>
+        <h2>Internal Web Server (VM-WEB)</h2>
+        <p>Welcome to Faculty of Engineering, University of Ruhuna. This is our official web site.</p>
+        <p class="success">✔ Department of Electrical and Information Engineering</p>
+        <p class="success">✔ Department of Civil and Environmental Engineering</p>
+        <p class="success">✔ Department of Mechanical and Manufacturing Engineering</p>
+        <hr>
+        <p><em>University of Ruhuna - Design and Management of Data Networks Project</em></p>
+    </div>
+</body>
+</html>
+```
+
+Create `Dockerfile`:
+```bash
+# Use the ultra-lightweight Nginx Alpine image
+FROM nginx:alpine
+
+# Remove the default Nginx welcome page
+RUN rm -rf /usr/share/nginx/html/*
+
+# Copy your custom project webpage into the container
+COPY index.html /usr/share/nginx/html/
+
+# Expose port 80 for HTTP traffic
+EXPOSE 80
+
+# Start Nginx in the foreground
+CMD ["nginx", "-g", "daemon off;"]
 ```

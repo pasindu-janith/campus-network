@@ -151,6 +151,7 @@ router ospf 1
 ! NAT Configuration
 ! ==========================================================
 
+access-list 1 permit host 10.10.40.10
 access-list 1 permit 10.10.10.0 0.0.0.255
 access-list 1 permit 10.10.20.0 0.0.0.255
 
