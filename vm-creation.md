@@ -13,22 +13,31 @@ FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+# Added 'git' to the package list
 RUN apt-get update && apt-get install -y \
         iputils-ping \
         openssh-client \
         nano \
         python3 \
         python3-pip \
+        git \
         && rm -rf /var/lib/apt/lists/*
-
 
 RUN pip3 install netmiko ansible
 
+# Legacy SSH configuration for older Cisco IOS compatibility
 RUN echo "Host 10.99.*.*" >> /etc/ssh/ssh_config && \
     echo "    KexAlgorithms +diffie-hellman-group14-sha1,diffie-hellman-group-exchange-sha1" >> /etc/ssh/ssh_config && \
     echo "    HostKeyAlgorithms +ssh-rsa" >> /etc/ssh/ssh_config && \
     echo "    Ciphers +aes256-cbc,aes192-cbc,aes128-cbc" >> /etc/ssh/ssh_config
 
+# Clone the automation repository into the container
+RUN git clone https://github.com/pasindu-janith/campus-automation.git /opt/campus-automation
+
+# Set the default directory so the console opens right where the scripts are
+WORKDIR /opt/campus-automation
+
+# Keep the container running in the background
 CMD ["tail","-f","/dev/null"]
 ```
 Build the image:
@@ -44,22 +53,45 @@ cd vm-zabbix
 ```
 Create `Dockerfile`:
 ```Dockerfile
-# Start from the official All-In-One Zabbix Appliance (Ubuntu-based)
+# Start from the official All-In-One Zabbix Appliance (resolves to 4.4.6)
 FROM zabbix/zabbix-appliance:ubuntu-latest
 
-# The Zabbix image drops privileges for security.
-# We must switch back to root to install your custom GNS3 tools.
+# Switch to root to install tools and perform the upgrade
 USER root
-
-# Prevent interactive prompts during installations
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install the basic networking tools required for your GNS3 topology
-RUN apt-get update && apt-get install -y \
+# 1. Install required networking tools and curl for package fetching
+# 1. Remove expired Nginx repo, then install required networking tools and curl
+RUN rm -f /etc/apt/sources.list.d/nginx*.list \
+    && apt-get update && apt-get install -y \
     iputils-ping \
     openssh-client \
     nano \
+    curl \
     && rm -rf /var/lib/apt/lists/*
+
+# 2. Add the Zabbix 6.0 repository for Ubuntu 18.04 bionic
+RUN curl -sL -o zabbix-release.deb https://repo.zabbix.com/zabbix/6.0/ubuntu/pool/main/z/zabbix-release/zabbix-release_6.0-4+ubuntu18.04_all.deb \
+    && dpkg -i zabbix-release.deb \
+    && apt-get update
+
+# 3. Install Zabbix 6.0 server backend and SQL scripts
+# --force-overwrite is used because the 4.4.6 files are untracked by dpkg
+# --force-confold keeps your existing config with the correct database credentials
+RUN apt-get install -y -o Dpkg::Options::="--force-overwrite" -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-confdef" \
+    zabbix-server-mysql zabbix-sql-scripts
+
+# 4. Bypass the MySQL version check (container has 5.7.29, but 6.0.48 requires >= 8.0.0)
+RUN echo "AllowUnsupportedDBVersions=1" >> /etc/zabbix/zabbix_server.conf
+
+# 5. Fix the PHP 7.3 requirement by deploying the 6.0.20 frontend source
+RUN mkdir -p /tmp/oldfrontend \
+    && cd /tmp/oldfrontend \
+    && curl -sL -o zabbix-6.0.20.tar.gz https://cdn.zabbix.com/zabbix/sources/stable/6.0/zabbix-6.0.20.tar.gz \
+    && tar xzf zabbix-6.0.20.tar.gz zabbix-6.0.20/ui/ \
+    && cp -r zabbix-6.0.20/ui/. /usr/share/zabbix/ \
+    && chown -R www-data:www-data /usr/share/zabbix \
+    && rm -rf /tmp/oldfrontend
 ```
 ```bash
 docker build -t vmzabbix-server:latest .
