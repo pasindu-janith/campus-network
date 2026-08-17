@@ -57,99 +57,160 @@
 enable
 configure terminal
 
-! ==========================================================
-! Basic Configuration
-! ==========================================================
-
 hostname SW-A-DCEE
 
-service timestamps debug datetime msec
-service timestamps log datetime msec
-service compress-config
-no service password-encryption
+username admin privilege 15 secret 5 $1$15m6$jgiHywdvy3n/sOz900VDO/
 
+no aaa new-model
 no ip routing
 no ip cef
 no ipv6 cef
 
-! ==========================================================
-! User Configuration
-! ==========================================================
-
-username admin privilege 15 secret YOUR_PASSWORD_HERE
-
-! ==========================================================
-! Spanning Tree Configuration
-! ==========================================================
-
 spanning-tree mode pvst
 spanning-tree extend system-id
 
-! ==========================================================
-! Trunk Interfaces
-! ==========================================================
-
 interface GigabitEthernet0/0
  description Trunk Uplink to SW-D-DCEE
- switchport trunk encapsulation dot1q
- switchport mode trunk
- switchport trunk native vlan 100
  switchport trunk allowed vlan 20,99,100
+ switchport trunk encapsulation dot1q
+ switchport trunk native vlan 100
+ switchport mode trunk
  negotiation auto
+exit
 
-! ==========================================================
-! Access Interfaces (PortFast Enabled)
-! ==========================================================
-
-interface range GigabitEthernet0/1 - 3, GigabitEthernet1/0 - 3, GigabitEthernet2/0 - 3
+interface GigabitEthernet0/1
  switchport access vlan 20
  switchport mode access
  negotiation auto
  spanning-tree portfast edge
+exit
 
-! ==========================================================
-! Unused Interfaces
-! ==========================================================
-
-interface range GigabitEthernet3/0 - 3
+interface GigabitEthernet0/2
+ switchport access vlan 20
+ switchport mode access
  negotiation auto
+ spanning-tree portfast edge
+exit
 
-! ==========================================================
-! Management VLAN Interface
-! ==========================================================
+interface GigabitEthernet0/3
+ switchport access vlan 20
+ switchport mode access
+ negotiation auto
+ spanning-tree portfast edge
+exit
+
+interface GigabitEthernet1/0
+ switchport access vlan 20
+ switchport mode access
+ negotiation auto
+ spanning-tree portfast edge
+exit
+
+interface GigabitEthernet1/1
+ switchport access vlan 20
+ switchport mode access
+ negotiation auto
+ spanning-tree portfast edge
+exit
+
+interface GigabitEthernet1/2
+ switchport access vlan 20
+ switchport mode access
+ negotiation auto
+ spanning-tree portfast edge
+exit
+
+interface GigabitEthernet1/3
+ switchport access vlan 20
+ switchport mode access
+ negotiation auto
+ spanning-tree portfast edge
+exit
+
+interface GigabitEthernet2/0
+ switchport access vlan 20
+ switchport mode access
+ negotiation auto
+ spanning-tree portfast edge
+exit
+
+interface GigabitEthernet2/1
+ switchport access vlan 20
+ switchport mode access
+ negotiation auto
+ spanning-tree portfast edge
+exit
+
+interface GigabitEthernet2/2
+ switchport access vlan 20
+ switchport mode access
+ negotiation auto
+ spanning-tree portfast edge
+exit
+
+interface GigabitEthernet2/3
+ switchport access vlan 20
+ switchport mode access
+ negotiation auto
+ spanning-tree portfast edge
+exit
+
+interface GigabitEthernet3/0
+ negotiation auto
+exit
+
+interface GigabitEthernet3/1
+ negotiation auto
+exit
+
+interface GigabitEthernet3/2
+ negotiation auto
+exit
+
+interface GigabitEthernet3/3
+ negotiation auto
+exit
 
 interface Vlan99
  description Out-of-Band Management
  ip address 10.99.20.31 255.255.255.0
  no ip route-cache
-
-! ==========================================================
-! Default Gateway
-! ==========================================================
+exit
 
 ip default-gateway 10.99.20.21
-
-! ==========================================================
-! HTTP / HTTPS Management
-! ==========================================================
+ip forward-protocol nd
 
 ip http server
 ip http secure-server
 
-! ==========================================================
-! SSH Configuration
-! ==========================================================
-
 ip ssh server algorithm encryption aes128-ctr aes192-ctr aes256-ctr
 ip ssh client algorithm encryption aes128-ctr aes192-ctr aes256-ctr
 
+ip access-list extended ACL_MGMT_ACCESS
+ remark PERMIT SSH from MGMT VLAN 99 only
+ permit tcp 10.99.10.0 0.0.0.255 any eq 22
+ permit tcp 10.99.20.0 0.0.0.255 any eq 22
+ permit tcp 10.99.30.0 0.0.0.255 any eq 22
+ permit tcp 10.99.99.0 0.0.0.255 any eq 22
+ remark Permit SNMP from VM-ZABBIX only
+ permit udp host 10.99.99.7 any eq snmp
+ remark Explicit DENY ALL Other MGMT Traffic
+ deny ip any any log
+exit
+
+snmp-server community FoE-Network RO ACL_MGMT_ACCESS
+
+line con 0
+exit
+
+line aux 0
+exit
+
 line vty 0 4
+ access-class ACL_MGMT_ACCESS in
  login local
  transport input ssh
-
-! ==========================================================
-! Save Configuration
-! ==========================================================
+exit
 
 end
 write memory

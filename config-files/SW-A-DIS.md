@@ -39,153 +39,159 @@ Unlike the core switches, **SW-A-DIS operates as a Layer 2 distribution switch**
 enable
 configure terminal
 
-! ==========================================================
-! Basic Configuration
-! ==========================================================
-
 hostname SW-A-DIS
 
-service timestamps debug datetime msec
-service timestamps log datetime msec
-service compress-config
-no service password-encryption
+username admin privilege 15 secret 5 $1$15m6$jgiHywdvy3n/sOz900VDO/
+
+no aaa new-model
 
 ip cef
-
-! ==========================================================
-! User Configuration
-! ==========================================================
-
-username admin privilege 15 secret YOUR_PASSWORD_HERE
-
-! ==========================================================
-! Spanning Tree Configuration
-! ==========================================================
+no ipv6 cef
 
 spanning-tree mode pvst
 spanning-tree extend system-id
 
-! ==========================================================
-! Trunk Interfaces
-! ==========================================================
-
 interface GigabitEthernet0/0
- description Trunk Uplink to Core Switches
- switchport trunk encapsulation dot1q
- switchport mode trunk
- switchport trunk native vlan 100
+ description Trunk Uplinks to SW-CORE-1 and SW-CORE-2
  switchport trunk allowed vlan 40,99,100
- no shutdown
-
-!
+ switchport trunk encapsulation dot1q
+ switchport trunk native vlan 100
+ switchport mode trunk
+ negotiation auto
+exit
 
 interface GigabitEthernet0/1
- description Trunk Uplink to Core Switches
- switchport trunk encapsulation dot1q
- switchport mode trunk
- switchport trunk native vlan 100
+ description Trunk Uplinks to SW-CORE-1 and SW-CORE-2
  switchport trunk allowed vlan 40,99,100
- no shutdown
-
-! ==========================================================
-! Access Ports - Server Farm
-! ==========================================================
+ switchport trunk encapsulation dot1q
+ switchport trunk native vlan 100
+ switchport mode trunk
+ negotiation auto
+exit
 
 interface GigabitEthernet0/2
- description Server Farm Host
- switchport mode access
+ description Connected to DIS Server Farm Hosts
  switchport access vlan 40
+ switchport mode access
+ negotiation auto
  spanning-tree portfast edge
- no shutdown
-
-!
+exit
 
 interface GigabitEthernet0/3
- description Server Farm Host
- switchport mode access
+ description Connected to DIS Server Farm Hosts
  switchport access vlan 40
+ switchport mode access
+ negotiation auto
  spanning-tree portfast edge
- no shutdown
-
-!
+exit
 
 interface GigabitEthernet1/0
- description Server Farm Host
- switchport mode access
+ description Connected to DIS Server Farm Hosts
  switchport access vlan 40
+ switchport mode access
+ negotiation auto
  spanning-tree portfast edge
- no shutdown
-
-!
+exit
 
 interface GigabitEthernet1/1
- description Management Host
- switchport mode access
+ description Connected to DIS Server Farm Hosts
  switchport access vlan 99
+ switchport mode access
+ negotiation auto
  spanning-tree portfast edge
- no shutdown
-
-!
+exit
 
 interface GigabitEthernet1/2
- description Management Host
- switchport mode access
+ description Connected to DIS Server Farm Hosts
  switchport access vlan 99
+ switchport mode access
+ negotiation auto
  spanning-tree portfast edge
- no shutdown
-
-!
+exit
 
 interface GigabitEthernet1/3
- description Administrator Laptop
- switchport mode access
+ description Link to Admin Physical Laptop
  switchport access vlan 99
+ switchport mode access
+ negotiation auto
  spanning-tree portfast edge
- no shutdown
+exit
 
-! ==========================================================
-! Management VLAN
-! ==========================================================
+interface GigabitEthernet2/0
+ switchport access vlan 40
+ switchport mode access
+ negotiation auto
+ spanning-tree portfast edge
+exit
+
+interface GigabitEthernet2/1
+ negotiation auto
+exit
+
+interface GigabitEthernet2/2
+ negotiation auto
+exit
+
+interface GigabitEthernet2/3
+ negotiation auto
+exit
+
+interface GigabitEthernet3/0
+ negotiation auto
+exit
+
+interface GigabitEthernet3/1
+ negotiation auto
+exit
+
+interface GigabitEthernet3/2
+ negotiation auto
+exit
+
+interface GigabitEthernet3/3
+ negotiation auto
+exit
 
 interface Vlan99
  description Out-of-Band Management
  ip address 10.99.99.34 255.255.255.0
- no shutdown
-
-! ==========================================================
-! Default Gateway
-! ==========================================================
+exit
 
 ip default-gateway 10.99.99.1
-
-! ==========================================================
-! HTTP / HTTPS
-! ==========================================================
+ip forward-protocol nd
 
 ip http server
 ip http secure-server
-
-! ==========================================================
-! SSH
-! ==========================================================
 
 ip ssh version 2
 ip ssh server algorithm encryption aes128-ctr aes192-ctr aes256-ctr
 ip ssh client algorithm encryption aes128-ctr aes192-ctr aes256-ctr
 
+ip access-list extended ACL_MGMT_ACCESS
+ remark PERMIT SSH from MGMT VLAN 99 only
+ permit tcp 10.99.10.0 0.0.0.255 any eq 22
+ permit tcp 10.99.20.0 0.0.0.255 any eq 22
+ permit tcp 10.99.30.0 0.0.0.255 any eq 22
+ permit tcp 10.99.99.0 0.0.0.255 any eq 22
+ remark Permit SNMP from VM-ZABBIX only
+ permit udp host 10.99.99.7 any eq snmp
+ remark Explicit DENY ALL Other MGMT Traffic
+ deny ip any any log
+exit
+
+snmp-server community FoE-Network RO ACL_MGMT_ACCESS
+
+line con 0
+exit
+
+line aux 0
+exit
+
 line vty 0 4
+ access-class ACL_MGMT_ACCESS in
  login local
  transport input ssh
-
-! ==========================================================
-! SNMP
-! ==========================================================
-
-snmp-server community FoE-Network RO
-
-! ==========================================================
-! Save Configuration
-! ==========================================================
+exit
 
 end
 write memory
