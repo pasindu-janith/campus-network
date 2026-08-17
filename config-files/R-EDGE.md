@@ -56,61 +56,27 @@ The **R-EDGE** router functions as the enterprise edge gateway connecting the in
 enable
 configure terminal
 
-! ==========================================================
-! Basic Configuration
-! ==========================================================
-
 hostname R-EDGE
-no ip domain lookup
-ip domain name eng.ruh.lk
 
-service timestamps debug datetime msec
-service timestamps log datetime msec
-no service password-encryption
+no aaa new-model
 
-ip cef
 ip source-route
 no ip icmp rate-limit unreachable
+ip cef
+no ip domain lookup
+ip domain name eng.ruh.lk
+no ipv6 cef
+
+username admin privilege 15 secret 5 $1$15m6$jgiHywdvy3n/sOz900VDO/
+
 ip tcp synwait-time 5
-
-! ==========================================================
-! User Configuration
-! ==========================================================
-
-username admin privilege 15 secret YOUR_PASSWORD_HERE
-
-! ==========================================================
-! SSH Configuration
-! ==========================================================
-
-crypto key generate rsa modulus 2048
 ip ssh version 2
-
-line vty 0 4
- login local
- transport input ssh
-
-line console 0
- exec-timeout 0 0
- privilege level 15
- logging synchronous
-
-line aux 0
- exec-timeout 0 0
- privilege level 15
- logging synchronous
-
-! ==========================================================
-! Interface Configuration
-! ==========================================================
 
 interface FastEthernet0/0
  description OOB Management Link to SW-CORE-1
  ip address 10.99.99.1 255.255.255.0
  duplex full
- no shutdown
-
-!
+exit
 
 interface GigabitEthernet1/0
  description Link to R-CORE-1
@@ -118,9 +84,8 @@ interface GigabitEthernet1/0
  ip nat inside
  ip virtual-reassembly in
  ip ospf 1 area 0
- no shutdown
-
-!
+ negotiation auto
+exit
 
 interface GigabitEthernet2/0
  description Link to R-CORE-2
@@ -128,51 +93,74 @@ interface GigabitEthernet2/0
  ip nat inside
  ip virtual-reassembly in
  ip ospf 1 area 0
- no shutdown
-
-!
+ negotiation auto
+exit
 
 interface GigabitEthernet3/0
  description Link to ISP / Internet
  ip address dhcp
  ip nat outside
  ip virtual-reassembly in
- no shutdown
+ negotiation auto
+exit
 
-! ==========================================================
-! OSPF Configuration
-! ==========================================================
+interface FastEthernet4/0
+ no ip address
+ shutdown
+ duplex half
+exit
 
 router ospf 1
  router-id 9.9.9.9
  default-information originate
+exit
 
-! ==========================================================
-! NAT Configuration
-! ==========================================================
-
-access-list 1 permit host 10.10.40.10
-access-list 1 permit 10.10.10.0 0.0.0.255
-access-list 1 permit 10.10.20.0 0.0.0.255
-
-ip nat inside source list 1 interface GigabitEthernet3/0 overload
-
-! ==========================================================
-! Default Route
-! ==========================================================
-
-ip route 0.0.0.0 0.0.0.0 192.168.42.1
-
-! ==========================================================
-! Disable Unused Services
-! ==========================================================
-
+ip forward-protocol nd
 no ip http server
 no ip http secure-server
 
-! ==========================================================
-! Save Configuration
-! ==========================================================
+ip nat inside source list 1 interface GigabitEthernet3/0 overload
+
+ip route 0.0.0.0 0.0.0.0 192.168.42.1 254
+
+ip access-list extended ACL_MGMT_ACCESS
+ remark PERMIT SSH from MGMT VLAN 99 only
+ permit tcp 10.99.10.0 0.0.0.255 any eq 22
+ permit tcp 10.99.20.0 0.0.0.255 any eq 22
+ permit tcp 10.99.30.0 0.0.0.255 any eq 22
+ permit tcp 10.99.99.0 0.0.0.255 any eq 22
+ remark Permit SNMP from VM-ZABBIX only
+ permit udp host 10.99.99.7 any eq snmp
+ remark Explicit DENY ALL Other MGMT Traffic
+ deny ip any any log
+exit
+
+access-list 1 permit 10.99.99.6
+access-list 1 permit 10.10.40.10
+access-list 1 permit 10.10.10.0 0.0.0.255
+access-list 1 permit 10.10.20.0 0.0.0.255
+
+snmp-server community FoE-Network RO
+
+line con 0
+ exec-timeout 0 0
+ privilege level 15
+ logging synchronous
+ stopbits 1
+exit
+
+line aux 0
+ exec-timeout 0 0
+ privilege level 15
+ logging synchronous
+ stopbits 1
+exit
+
+line vty 0 4
+ access-class ACL_MGMT_ACCESS in
+ login local
+ transport input ssh
+exit
 
 end
 write memory

@@ -61,115 +61,155 @@
 enable
 configure terminal
 
-! ==========================================================
-! Basic Configuration
-! ==========================================================
-
 hostname SW-D-DMME
 
-service timestamps debug datetime msec
-service timestamps log datetime msec
-service compress-config
-no service password-encryption
+username admin privilege 15 secret 5 $1$15m6$jgiHywdvy3n/sOz900VDO/
+
+no aaa new-model
 
 ip cef
 no ipv6 cef
 
-! ==========================================================
-! User Configuration
-! ==========================================================
-
-username admin privilege 15 secret YOUR_PASSWORD_HERE
-
-! ==========================================================
-! Spanning Tree Configuration
-! ==========================================================
-
 spanning-tree mode pvst
 spanning-tree extend system-id
 
-! ==========================================================
-! Routed Interfaces
-! ==========================================================
+interface GigabitEthernet0/0
+ switchport trunk allowed vlan 30,99,100
+ switchport trunk encapsulation dot1q
+ switchport trunk native vlan 100
+ switchport mode trunk
+ negotiation auto
+exit
 
 interface GigabitEthernet0/1
  no switchport
  ip address 10.255.255.9 255.255.255.252
  ip ospf 1 area 0
  negotiation auto
-
-!
+exit
 
 interface GigabitEthernet0/2
  no switchport
  ip address 10.255.255.13 255.255.255.252
  ip ospf 1 area 0
  negotiation auto
+exit
 
-! ==========================================================
-! Trunk Interfaces
-! ==========================================================
-
-interface GigabitEthernet0/0
- description Trunk link down to SW-A-DMME
- switchport trunk encapsulation dot1q
- switchport mode trunk
- switchport trunk native vlan 100
- switchport trunk allowed vlan 30,99,100
+interface GigabitEthernet0/3
  negotiation auto
+exit
 
-! ==========================================================
-! Unused Interfaces
-! ==========================================================
-
-interface range GigabitEthernet0/3, GigabitEthernet1/0 - 3, GigabitEthernet2/0 - 3, GigabitEthernet3/0 - 3
+interface GigabitEthernet1/0
  negotiation auto
+exit
 
-! ==========================================================
-! VLAN Interfaces
-! ==========================================================
+interface GigabitEthernet1/1
+ negotiation auto
+exit
+
+interface GigabitEthernet1/2
+ negotiation auto
+exit
+
+interface GigabitEthernet1/3
+ negotiation auto
+exit
+
+interface GigabitEthernet2/0
+ negotiation auto
+exit
+
+interface GigabitEthernet2/1
+ negotiation auto
+exit
+
+interface GigabitEthernet2/2
+ negotiation auto
+exit
+
+interface GigabitEthernet2/3
+ negotiation auto
+exit
+
+interface GigabitEthernet3/0
+ negotiation auto
+exit
+
+interface GigabitEthernet3/1
+ negotiation auto
+exit
+
+interface GigabitEthernet3/2
+ negotiation auto
+exit
+
+interface GigabitEthernet3/3
+ negotiation auto
+exit
 
 interface Vlan30
  description Default Gateway for DMME Department
  ip address 10.10.30.254 255.255.255.0
+ ip access-group ACL_DMME_IN in
  ip helper-address 10.10.40.10
  ip ospf 1 area 0
-
-!
+exit
 
 interface Vlan99
  description DMME Local Management
  ip address 10.99.30.21 255.255.255.0
  ip ospf 1 area 0
-
-! ==========================================================
-! OSPF Configuration
-! ==========================================================
+exit
 
 router ospf 1
  router-id 23.23.23.23
+exit
 
-! ==========================================================
-! HTTP / HTTPS Management
-! ==========================================================
+ip forward-protocol nd
 
 ip http server
 ip http secure-server
 
-! ==========================================================
-! SSH Configuration
-! ==========================================================
-
 ip ssh server algorithm encryption aes128-ctr aes192-ctr aes256-ctr
 ip ssh client algorithm encryption aes128-ctr aes192-ctr aes256-ctr
 
+ip access-list extended ACL_DMME_IN
+ remark PERMIT DHCP Requests
+ permit udp any any eq bootps
+ permit udp any any eq bootpc
+ remark Explicit DENY to ALL internal VLANs
+ deny ip 10.10.30.0 0.0.0.255 10.10.10.0 0.0.0.255
+ deny ip 10.10.30.0 0.0.0.255 10.10.20.0 0.0.0.255
+ deny ip 10.10.30.0 0.0.0.255 10.10.40.0 0.0.0.255
+ remark Explicit DENY ALL
+ deny ip any any log
+exit
+
+ip access-list extended ACL_MGMT_ACCESS
+ remark PERMIT SSH from MGMT VLAN 99 only
+ permit tcp 10.99.10.0 0.0.0.255 any eq 22
+ permit tcp 10.99.20.0 0.0.0.255 any eq 22
+ permit tcp 10.99.30.0 0.0.0.255 any eq 22
+ permit tcp 10.99.99.0 0.0.0.255 any eq 22
+ remark Permit SNMP from VM-ZABBIX only
+ permit udp host 10.99.99.7 any eq snmp
+ remark Explicit DENY ALL Other MGMT Traffic
+ deny ip any any log
+exit
+
+snmp-server community FoE-Network RO ACL_MGMT_ACCESS
+
+line con 0
+exit
+
+line aux 0
+exit
+
 line vty 0 4
+ access-class ACL_MGMT_ACCESS in
  login local
  transport input ssh
-
-! ==========================================================
-! Save Configuration
-! ==========================================================
+exit
 
 end
 write memory

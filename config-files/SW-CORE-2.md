@@ -62,100 +62,107 @@ Cisco IOS Configuration (SW-CORE-2)
 enable
 configure terminal
 
-! ==========================================================
-! Basic Configuration
-! ==========================================================
-
 hostname SW-CORE-2
 
-service timestamps debug datetime msec
-service timestamps log datetime msec
-service compress-config
-no service password-encryption
+username admin privilege 15 secret 5 $1$15m6$jgiHywdvy3n/sOz900VDO/
+
+no aaa new-model
 
 ip cef
-
-! ==========================================================
-! User Configuration
-! ==========================================================
-
-username admin privilege 15 secret YOUR_PASSWORD_HERE
-
-! ==========================================================
-! Spanning Tree Configuration
-! ==========================================================
+no ipv6 cef
 
 spanning-tree mode pvst
 spanning-tree extend system-id
-
-! ==========================================================
-! Routed Interfaces
-! ==========================================================
 
 interface GigabitEthernet0/0
  no switchport
  ip address 10.255.255.6 255.255.255.252
  ip ospf 1 area 0
- no shutdown
-
-!
+ negotiation auto
+exit
 
 interface GigabitEthernet0/1
  no switchport
  ip address 10.255.255.14 255.255.255.252
  ip ospf 1 area 0
- no shutdown
-
-!
+ negotiation auto
+exit
 
 interface GigabitEthernet0/2
  no switchport
  ip address 10.255.255.22 255.255.255.252
  ip ospf 1 area 0
- no shutdown
+ negotiation auto
+exit
 
-!
+interface GigabitEthernet0/3
+ switchport trunk allowed vlan 99,100
+ switchport trunk encapsulation dot1q
+ switchport trunk native vlan 100
+ switchport mode trunk
+ negotiation auto
+exit
 
 interface GigabitEthernet1/0
  no switchport
  ip address 10.255.255.37 255.255.255.252
  ip ospf 1 area 0
- no shutdown
-
-! ==========================================================
-! Trunk Interfaces
-! ==========================================================
-
-interface GigabitEthernet0/3
- switchport trunk encapsulation dot1q
- switchport mode trunk
- switchport trunk native vlan 100
- switchport trunk allowed vlan 99,100
- no shutdown
-
-!
+ negotiation auto
+exit
 
 interface GigabitEthernet1/1
  description Trunk Downlink to SW-A-DIS
- switchport trunk encapsulation dot1q
- switchport mode trunk
- switchport trunk native vlan 100
  switchport trunk allowed vlan 40,99,100
- no shutdown
-
-!
+ switchport trunk encapsulation dot1q
+ switchport trunk native vlan 100
+ switchport mode trunk
+ negotiation auto
+exit
 
 interface GigabitEthernet1/2
  description Inter-Core L2 Link for HSRP Keepalives
- switchport trunk encapsulation dot1q
- switchport mode trunk
- switchport trunk native vlan 100
  switchport trunk allowed vlan 40,99,100
- no shutdown
+ switchport trunk encapsulation dot1q
+ switchport trunk native vlan 100
+ switchport mode trunk
+ negotiation auto
+exit
 
-! ==========================================================
-! VLAN Interfaces (SVIs)
-! ==========================================================
+interface GigabitEthernet1/3
+ negotiation auto
+exit
+
+interface GigabitEthernet2/0
+ negotiation auto
+exit
+
+interface GigabitEthernet2/1
+ negotiation auto
+exit
+
+interface GigabitEthernet2/2
+ negotiation auto
+exit
+
+interface GigabitEthernet2/3
+ negotiation auto
+exit
+
+interface GigabitEthernet3/0
+ negotiation auto
+exit
+
+interface GigabitEthernet3/1
+ negotiation auto
+exit
+
+interface GigabitEthernet3/2
+ negotiation auto
+exit
+
+interface GigabitEthernet3/3
+ negotiation auto
+exit
 
 interface Vlan40
  ip address 10.10.40.253 255.255.255.0
@@ -163,53 +170,64 @@ interface Vlan40
  standby 40 ip 10.10.40.254
  standby 40 preempt
  ip ospf 1 area 0
- no shutdown
-
-!
+exit
 
 interface Vlan99
  description Out-of-Band Management
  ip address 10.99.99.12 255.255.255.0
+ standby 99 ip 10.99.99.254
+ standby 99 preempt
  ip ospf 1 area 0
- no shutdown
-
-!
+exit
 
 interface Vlan100
  ip address 10.255.255.33 255.255.255.252
  ip ospf 1 area 0
- no shutdown
-
-! ==========================================================
-! OSPF Configuration
-! ==========================================================
+exit
 
 router ospf 1
  router-id 12.12.12.12
+exit
 
-! ==========================================================
-! HTTP / HTTPS Management
-! ==========================================================
+ip forward-protocol nd
 
 ip http server
 ip http secure-server
 
-! ==========================================================
-! SSH Configuration
-! ==========================================================
-
 ip ssh server algorithm encryption aes128-ctr aes192-ctr aes256-ctr
 ip ssh client algorithm encryption aes128-ctr aes192-ctr aes256-ctr
 
+ip access-list extended ACL_MGMT_ACCESS
+ remark PERMIT SSH from MGMT VLAN 99 only
+ permit tcp 10.99.10.0 0.0.0.255 any eq 22
+ permit tcp 10.99.20.0 0.0.0.255 any eq 22
+ permit tcp 10.99.30.0 0.0.0.255 any eq 22
+ permit tcp 10.99.99.0 0.0.0.255 any eq 22
+ remark Permit SNMP from VM-ZABBIX only
+ permit udp host 10.99.99.7 any eq snmp
+ remark Explicit DENY ALL Other MGMT Traffic
+ deny ip any any log
+exit
+
+snmp-server community FoE-Network RO ACL_MGMT_ACCESS
+
+line con 0
+exit
+
+line aux 0
+exit
+
 line vty 0 4
+ access-class ACL_MGMT_ACCESS in
  login local
  transport input ssh
+exit
 
-! ==========================================================
-! Save Configuration
-! ==========================================================
+line vty 5 15
+ access-class ACL_MGMT_ACCESS in
+ login
+exit
 
 end
 write memory
-
 ```
